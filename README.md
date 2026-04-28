@@ -1,5 +1,6 @@
 # Release-bomb demo — GITHUB_TOKEN dormant-bomb chain
 
+
 This public repo demonstrates that a workflow run authenticated only by the
 auto-issued `GITHUB_TOKEN` (no PAT, no GitHub App) can plant a release that
 DETONATES when any non-bot actor (typically a human maintainer) interacts
