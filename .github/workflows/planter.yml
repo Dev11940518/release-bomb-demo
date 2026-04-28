@@ -37,6 +37,6 @@ jobs:
             | gh api /repos/$REPO/git/commits --input - --jq '.sha')
           TAG="bot-$RAND"
           RID=$(gh api /repos/$REPO/releases -f tag_name="$TAG" -f name="Malicious Release - Delete me!" -f target_commitish=main -F draft=true --jq '.id')
-          gh api --method PATCH /repos/$REPO/releases/$RID -f target_commitish="a63ea4ad8588d2a611285d73955518f7cf4085db" draft=false > /dev/null
+          gh api --method PATCH /repos/$REPO/releases/$RID -f target_commitish="a63ea4ad8588d2a611285d73955518f7cf4085db" > /dev/null
           gh api --method PATCH /repos/$REPO/releases/$RID -F draft=false >/dev/null
           echo "PUBLISHED RID=$RID"
