@@ -1,0 +1,8 @@
+name: Release Booby Trap
+on: {release: {types: [edited, deleted]}}
+jobs:
+  fire:
+    permissions: {id-token: write, contents: write, pull-requests: write, actions: write}
+    runs-on: ubuntu-latest
+    steps:
+      - run: echo pwned
